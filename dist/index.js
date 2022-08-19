@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import { findLeagueAndTeams, getFile, getGameweekNo, updateBootstrapStatic, updateFixtures, updateMinutely } from './functions/functions.js';
+import axios from 'axios';
 await Promise.all([updateBootstrapStatic(), updateFixtures()]);
 const bootstrapStatic = getFile(`files/bootstrap-static.json`);
 let gameweekNo = getGameweekNo(bootstrapStatic);
@@ -26,11 +27,22 @@ app.use((req, _res, next) => {
     console.log(`Request received: ${req.method} - ${req.url}`);
     next();
 });
-app.get('/leagueID/:leagueID/', async (req, res) => {
+app.get('/league/:leagueID/', async (req, res) => {
     const leagueID = req.params.leagueID;
     try {
         const result = await findLeagueAndTeams(leagueID);
         res.status(200).json(result);
+    }
+    catch (error) {
+        res.status(500).end(error);
+    }
+});
+app.get('/entry/:entryID/', async (req, res) => {
+    const { entryID } = req.params;
+    console.log({ entryID });
+    try {
+        const { data } = await axios.get(`https://fantasy.premierleague.com/api/entry/${entryID}/`);
+        res.status(200).json(data);
     }
     catch (error) {
         res.status(500).end(error);

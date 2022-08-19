@@ -4,6 +4,7 @@ import cors from 'cors';
 
 import { findLeagueAndTeams, getFile, getGameweekNo, updateBootstrapStatic, updateFixtures, updateMinutely } from './functions/functions.js';
 import { BootstrapStatic, Fixture } from './bootstrap-static';
+import axios from 'axios';
 
 await Promise.all([updateBootstrapStatic(), updateFixtures()]);
 const bootstrapStatic = getFile(`files/bootstrap-static.json`) as BootstrapStatic;
@@ -36,12 +37,24 @@ app.use((req, _res, next) => {
 	next();
 });
 
-app.get('/leagueID/:leagueID/', async (req: Request, res: Response) => {
+app.get('/league/:leagueID/', async (req: Request, res: Response) => {
 	const leagueID = req.params.leagueID;
 
 	try {
 		const result = await findLeagueAndTeams(leagueID);
 		res.status(200).json(result);
+	} catch (error) {
+		res.status(500).end(error);
+	}
+});
+
+app.get('/entry/:entryID/', async (req: Request, res: Response) => {
+	const { entryID } = req.params;
+	console.log({ entryID });
+
+	try {
+		const { data } = await axios.get(`https://fantasy.premierleague.com/api/entry/${entryID}/`);
+		res.status(200).json(data);
 	} catch (error) {
 		res.status(500).end(error);
 	}
