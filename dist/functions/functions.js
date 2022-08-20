@@ -1,13 +1,8 @@
 import axios from 'axios';
 import fs from 'fs';
 export const getFile = (filePath) => {
-    try {
-        let rawdata = fs.readFileSync(filePath);
-        return JSON.parse(rawdata.toString());
-    }
-    catch (error) {
-        return error;
-    }
+    let rawdata = fs.readFileSync(filePath);
+    return JSON.parse(rawdata.toString());
 };
 export const writeFile = (data, path) => {
     const jsonData = JSON.stringify(data);
@@ -132,8 +127,14 @@ export const updateHourly = async () => {
 export const updateMinutely = async (gameweekNo) => {
     const bootstrapStatic = getFile(`files/bootstrap-static.json`);
     const liveGameweek = await updateLiveGameweek(gameweekNo);
-    const previousLiveGameweek = getFile('files/live-gameweek.json');
-    const changes = compareLiveGameweekData(liveGameweek, previousLiveGameweek, bootstrapStatic);
-    writeFile(changes.concat(getFile('files/changes.json')), 'files/changes.json');
-    writeFile(liveGameweek, 'files/live-gameweek.json');
+    try {
+        const previousLiveGameweek = getFile(`files/live-gameweek-${gameweekNo}.json`);
+        const changes = compareLiveGameweekData(liveGameweek, previousLiveGameweek, bootstrapStatic);
+        writeFile(changes.concat(getFile(`files/changes-${gameweekNo}.json`)), `files/changes-${gameweekNo}.json`);
+    }
+    catch (error) {
+        console.log(error);
+        writeFile([], `files/changes-${gameweekNo}.json`);
+    }
+    writeFile(liveGameweek, `files/live-gameweek-${gameweekNo}.json`);
 };

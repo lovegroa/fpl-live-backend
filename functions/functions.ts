@@ -171,6 +171,7 @@ export const updateMinutely = async (gameweekNo: number) => {
 		const changes = compareLiveGameweekData(liveGameweek, previousLiveGameweek, bootstrapStatic);
 		writeFile(changes.concat(getFile(`files/changes-${gameweekNo}.json`)), `files/changes-${gameweekNo}.json`);
 	} catch (error) {
+		console.log(error);
 		writeFile([], `files/changes-${gameweekNo}.json`);
 	}
 

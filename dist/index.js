@@ -45,6 +45,7 @@ app.get('/entry/:entryID/', async (req, res) => {
         res.status(200).json(data);
     }
     catch (error) {
+        console.log(error);
         res.status(500).end(error);
     }
 });
@@ -54,15 +55,17 @@ app.get('/bootstrap-static/', async (req, res) => {
         res.status(200).json(bootstrapStatic);
     }
     catch (error) {
+        console.log(error);
         res.status(500).end(error);
     }
 });
 app.get('/latest-changes/', async (req, res) => {
     try {
-        const bootstrapStatic = getFile(`files/changes.json`);
+        const bootstrapStatic = getFile(`files/changes-${gameweekNo}.json`);
         res.status(200).json(bootstrapStatic);
     }
     catch (error) {
+        console.log(error);
         res.status(500).end(error);
     }
 });

@@ -56,6 +56,7 @@ app.get('/entry/:entryID/', async (req: Request, res: Response) => {
 		const { data } = await axios.get(`https://fantasy.premierleague.com/api/entry/${entryID}/`);
 		res.status(200).json(data);
 	} catch (error) {
+		console.log(error);
 		res.status(500).end(error);
 	}
 });
@@ -65,6 +66,7 @@ app.get('/bootstrap-static/', async (req: Request, res: Response) => {
 		const bootstrapStatic = getFile(`files/bootstrap-static.json`);
 		res.status(200).json(bootstrapStatic);
 	} catch (error) {
+		console.log(error);
 		res.status(500).end(error);
 	}
 });
@@ -74,6 +76,7 @@ app.get('/latest-changes/', async (req: Request, res: Response) => {
 		const bootstrapStatic = getFile(`files/changes-${gameweekNo}.json`);
 		res.status(200).json(bootstrapStatic);
 	} catch (error) {
+		console.log(error);
 		res.status(500).end(error);
 	}
 });
