@@ -71,7 +71,7 @@ app.get('/bootstrap-static/', async (req: Request, res: Response) => {
 
 app.get('/latest-changes/', async (req: Request, res: Response) => {
 	try {
-		const bootstrapStatic = getFile(`files/changes.json`);
+		const bootstrapStatic = getFile(`files/changes-${gameweekNo}.json`);
 		res.status(200).json(bootstrapStatic);
 	} catch (error) {
 		res.status(500).end(error);

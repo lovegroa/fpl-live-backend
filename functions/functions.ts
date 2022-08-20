@@ -4,12 +4,8 @@ import { resourceLimits } from 'worker_threads';
 import { BootstrapStatic, Fixture, LeagueData, LiveGameweek, Team } from '../bootstrap-static';
 
 export const getFile = (filePath: string): any => {
-	try {
-		let rawdata = fs.readFileSync(filePath);
-		return JSON.parse(rawdata.toString());
-	} catch (error) {
-		return error;
-	}
+	let rawdata = fs.readFileSync(filePath);
+	return JSON.parse(rawdata.toString());
 };
 
 export const writeFile = (data: unknown, path: string) => {
@@ -169,8 +165,14 @@ export const updateHourly = async () => {
 export const updateMinutely = async (gameweekNo: number) => {
 	const bootstrapStatic = getFile(`files/bootstrap-static.json`) as BootstrapStatic;
 	const liveGameweek = await updateLiveGameweek(gameweekNo);
-	const previousLiveGameweek = getFile('files/live-gameweek.json') as LiveGameweek;
-	const changes = compareLiveGameweekData(liveGameweek, previousLiveGameweek, bootstrapStatic);
-	writeFile(changes.concat(getFile('files/changes.json')), 'files/changes.json');
-	writeFile(liveGameweek, 'files/live-gameweek.json');
+
+	try {
+		const previousLiveGameweek = getFile(`files/live-gameweek-${gameweekNo}.json`) as LiveGameweek;
+		const changes = compareLiveGameweekData(liveGameweek, previousLiveGameweek, bootstrapStatic);
+		writeFile(changes.concat(getFile(`files/changes-${gameweekNo}.json`)), `files/changes-${gameweekNo}.json`);
+	} catch (error) {
+		writeFile([], `files/changes-${gameweekNo}.json`);
+	}
+
+	writeFile(liveGameweek, `files/live-gameweek-${gameweekNo}.json`);
 };
