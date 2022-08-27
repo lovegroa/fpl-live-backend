@@ -1,1 +1,11 @@
-[]
+[
+	{ "date": "2022-08-27T14:56:20.324Z", "id": 72, "name": "Travers", "metric": "goals_conceded", "old": 4, "new": 5 },
+	{ "date": "2022-08-27T14:56:20.324Z", "id": 72, "name": "Travers", "metric": "saves", "old": 1, "new": 2 },
+	{ "date": "2022-08-27T14:56:20.324Z", "id": 81, "name": "Raya", "metric": "saves", "old": 2, "new": 4 },
+	{ "date": "2022-08-27T14:56:20.324Z", "id": 81, "name": "Raya", "metric": "total_points", "old": 1, "new": 2 },
+	{ "date": "2022-08-27T14:56:20.325Z", "id": 147, "name": "Mendy", "metric": "saves", "old": 0, "new": 1 },
+	{ "date": "2022-08-27T14:56:20.327Z", "id": 280, "name": "Van Dijk", "metric": "goals_scored", "old": 0, "new": 1 },
+	{ "date": "2022-08-27T14:56:20.327Z", "id": 280, "name": "Van Dijk", "metric": "total_points", "old": 1, "new": 7 },
+	{ "date": "2022-08-27T14:56:20.327Z", "id": 284, "name": "Robertson", "metric": "assists", "old": 0, "new": 1 },
+	{ "date": "2022-08-27T14:56:20.327Z", "id": 284, "name": "Robertson", "metric": "total_points", "old": 1, "new": 4 }
+]
