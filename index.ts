@@ -3,25 +3,27 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 
 import { findLeagueAndTeams, getFile, getGameweekNo, updateBootstrapStatic, updateFixtures, updateMinutely } from './functions/functions.js';
-import { BootstrapStatic, Fixture } from './bootstrap-static';
+import { BootstrapStatic } from './types';
 import axios from 'axios';
 
+console.log('updateTenMinutely');
 await Promise.all([updateBootstrapStatic(), updateFixtures()]);
-const bootstrapStatic = getFile(`files/bootstrap-static.json`) as BootstrapStatic;
+let bootstrapStatic = getFile(`files/bootstrap-static.json`) as BootstrapStatic;
 let gameweekNo = getGameweekNo(bootstrapStatic);
 
 console.log({ gameweekNo });
 
 setInterval(async () => {
+	console.log('updateTenMinutely');
 	await Promise.all([updateBootstrapStatic(), updateFixtures()]);
-	// const fixtures = getFile('/files/fixtures.json') as Fixture[];
-	const bootstrapStatic = getFile(`files/bootstrap-static.json`) as BootstrapStatic;
+	bootstrapStatic = getFile(`files/bootstrap-static.json`) as BootstrapStatic;
 	gameweekNo = getGameweekNo(bootstrapStatic);
-}, 1000 * 60 * 60);
+	console.log({ gameweekNo });
+}, 1000 * 60 * 10);
 
 await updateMinutely(gameweekNo);
+
 setInterval(async () => {
-	console.log('updateMinutely');
 	await updateMinutely(gameweekNo);
 }, 1000 * 60);
 
@@ -73,7 +75,7 @@ app.get('/bootstrap-static/', async (req: Request, res: Response) => {
 
 app.get('/latest-changes/', async (req: Request, res: Response) => {
 	try {
-		const bootstrapStatic = getFile(`files/changes-${gameweekNo}.json`);
+		const bootstrapStatic = getFile(`files/gameweeks/${gameweekNo}/changes-${gameweekNo}.json`);
 		res.status(200).json(bootstrapStatic);
 	} catch (error) {
 		console.log(error);

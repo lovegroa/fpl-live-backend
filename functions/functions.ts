@@ -1,7 +1,7 @@
 import axios from 'axios';
 import fs from 'fs';
 import { resourceLimits } from 'worker_threads';
-import { BootstrapStatic, Fixture, LeagueData, LiveGameweek, Team } from '../bootstrap-static';
+import { BootstrapStatic, Fixture, LeagueData, LiveElement, LiveGameweek, Team } from '../types';
 
 export const getFile = (filePath: string): any => {
 	let rawdata = fs.readFileSync(filePath);
@@ -13,19 +13,41 @@ export const writeFile = (data: unknown, path: string) => {
 	fs.writeFileSync(path, jsonData);
 };
 
-export const updateBootstrapStatic = async () => {
-	const { data } = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
-	writeFile(data, `files/bootstrap-static.json`);
+export const updateBootstrapStatic = async (): Promise<boolean> => {
+	console.log('Updating BootstrapStatic');
+	try {
+		const { data } = await axios.get('https://fantasy.premierleague.com/api/bootstrap-static/');
+		if (!data) return false;
+		if (typeof data !== 'object') return false;
+		if (!data.hasOwnProperty('elements')) return false;
+		if (!data.elements.length) return false;
+		writeFile(data, `files/bootstrap-static.json`);
+		return true;
+	} catch (error) {
+		return false;
+	}
 };
 
 export const updateFixtures = async () => {
-	const { data } = await axios.get('https://fantasy.premierleague.com/api/fixtures/');
-	writeFile(data, `files/fixtures.json`);
+	console.log('Updating fixtures');
+	try {
+		const { data } = await axios.get('https://fantasy.premierleague.com/api/fixtures/');
+		if (!Array.isArray(data)) return false;
+		if (!data.length) return false;
+		writeFile(data, `files/fixtures.json`);
+		return true;
+	} catch (error) {
+		return false;
+	}
 };
 
-export const updateLiveGameweek = async (gameweekNo: number): Promise<LiveGameweek> => {
-	const { data } = await axios.get(`https://fantasy.premierleague.com/api/event/${gameweekNo}/live/`);
-	return data as LiveGameweek;
+export const updateLiveGameweek = async (gameweekNo: number): Promise<LiveGameweek | null> => {
+	try {
+		const { data } = await axios.get(`https://fantasy.premierleague.com/api/event/${gameweekNo}/live/`);
+		return data as LiveGameweek;
+	} catch (error: unknown) {
+		return null;
+	}
 };
 
 export const getGameweekNo = (bootstrapStatic: BootstrapStatic): number => {
@@ -67,23 +89,153 @@ type LiveGameweekChange = {
 	new: number | string | boolean;
 };
 
-export const compareLiveGameweekData = (newData: LiveGameweek, oldData: LiveGameweek, bootstrapStatic: BootstrapStatic): LiveGameweekChange[] => {
+// clean sheets
+// saves
+// goals conceeded
+
+// assists
+// goals
+// penalties missed
+// penalties saved
+// bonus points
+// own goals
+// yellow cards
+// red cards
+// minutes
+
+const calculateCleanSheets = ({ stats: { goals_conceded, minutes } }: LiveElement, position: number): number => {
+	if (minutes < 60) return 0;
+	if (goals_conceded !== 0) return 0;
+	switch (position) {
+		case 1:
+			return 4;
+		case 2:
+			return 4;
+		case 3:
+			return 1;
+		case 4:
+			return 0;
+	}
+
+	return 0;
+};
+const calculateGoalsConceded = ({ stats: { goals_conceded } }: LiveElement, position: number): number => {
+	if (goals_conceded < 2) return 0;
+	switch (position) {
+		case 1:
+			return Math.floor(goals_conceded / 2) * -1;
+		case 2:
+			return Math.floor(goals_conceded / 2) * -1;
+		default:
+			return 0;
+	}
+};
+
+const calculateSaves = ({ stats: { saves } }: LiveElement, position: number): number => {
+	if (position !== 1) return 0;
+
+	return Math.floor(saves / 3);
+};
+
+const calculatePenaltiesSaved = ({ stats: { penalties_saved } }: LiveElement, position: number): number => {
+	return penalties_saved * 5;
+};
+const calculatePenaltiesMissed = ({ stats: { penalties_missed } }: LiveElement, position: number): number => {
+	return penalties_missed * -2;
+};
+const calculateYellowCards = ({ stats: { yellow_cards } }: LiveElement, position: number): number => {
+	return yellow_cards * -1;
+};
+const calculateRedCards = ({ stats: { red_cards } }: LiveElement, position: number): number => {
+	return red_cards * -3;
+};
+const calculateOwnGoals = ({ stats: { own_goals } }: LiveElement, position: number): number => {
+	return own_goals * -2;
+};
+
+const calculateAssists = ({ stats: { assists } }: LiveElement, position: number): number => {
+	return assists * 3;
+};
+const calculateMinutes = ({ stats: { minutes } }: LiveElement, position: number): number => {
+	if (minutes >= 60) return 2;
+	if (minutes > 0) return 1;
+	return 0;
+};
+const calculateGoalsScored = ({ stats: { goals_scored } }: LiveElement, position: number): number => {
+	switch (position) {
+		case 1:
+			return goals_scored * 6;
+		case 2:
+			return goals_scored * 6;
+		case 3:
+			return goals_scored * 5;
+		case 4:
+			return goals_scored * 4;
+	}
+
+	return 0;
+};
+
+const calculateLivePoints = (gameweekData: LiveGameweek, bootstrapStatic: BootstrapStatic) => {
+	gameweekData.elements.forEach((element) => {
+		const { element_type } = bootstrapStatic.elements.filter(({ id }) => id === element.id)[0];
+		let totalPoints = 0;
+		totalPoints += calculateMinutes(element, element_type);
+		totalPoints += calculateGoalsScored(element, element_type);
+		totalPoints += calculateAssists(element, element_type);
+		totalPoints += calculateOwnGoals(element, element_type);
+		totalPoints += calculateRedCards(element, element_type);
+		totalPoints += calculateYellowCards(element, element_type);
+		totalPoints += calculatePenaltiesMissed(element, element_type);
+		totalPoints += calculatePenaltiesSaved(element, element_type);
+		totalPoints += calculateGoalsConceded(element, element_type);
+		totalPoints += calculateSaves(element, element_type);
+		totalPoints += calculateCleanSheets(element, element_type);
+		totalPoints += element.stats.bonus;
+		element.stats.total_points = totalPoints;
+	});
+};
+
+export const isLiveGameweekDataType = (newData: LiveGameweek): boolean => {
+	if (!newData) {
+		return false;
+	}
+	if (typeof newData !== 'object') {
+		return false;
+	}
+	if (!newData.hasOwnProperty('elements')) {
+		return false;
+	}
+	if (!newData.elements.length) {
+		return false;
+	}
+
+	return true;
+};
+
+export const compareLiveGameweekData = (
+	newData: LiveGameweek,
+	oldData: LiveGameweek,
+	bootstrapStatic: BootstrapStatic,
+	teams: Record<number, boolean>,
+	originalChanges: LiveGameweekChange[]
+): LiveGameweekChange[] => {
 	const changes: LiveGameweekChange[] = [];
 
 	newData.elements.forEach((playerNew) => {
-		// const name = getPlayerName(bootstrapStatic, playerNew.id);
 		const player = getPlayer(bootstrapStatic, playerNew.id);
-
 		const name = player.web_name;
 		const position = player.element_type;
-
 		const { stats, id } = playerNew;
+		const playerOldArray = oldData.elements.filter((playerOld) => playerOld.id === id);
+		const statsToIgnore = ['influence', 'creativity', 'threat', 'ict_index', 'in_dreamteam', 'bps'];
+		let playStatus: 0 | 1 | 2 = 0; // 0 = game not started, 1 = played, 2 = game started and not yet played
+
+		if (teams[player.team]) {
+			playStatus = playerNew.stats.minutes ? 1 : 2;
+		}
 
 		type Stats = keyof typeof stats;
-
-		const playerOldArray = oldData.elements.filter((playerOld) => playerOld.id === id);
-
-		const statsToIgnore = ['influence', 'creativity', 'threat', 'ict_index', 'in_dreamteam', 'bps'];
 
 		if (playerOldArray.length === 1) {
 			const playerOld = playerOldArray[0];
@@ -96,32 +248,190 @@ export const compareLiveGameweekData = (newData: LiveGameweek, oldData: LiveGame
 							const oldMinutes = playerOld.stats['minutes'];
 							const newMinutes = playerNew.stats['minutes'];
 							if ((oldMinutes === 0 && newMinutes > 0) || (oldMinutes < 60 && newMinutes >= 60)) {
-								changes.push({ date: new Date(), id, name, metric, old: playerOld.stats[metric], new: playerNew.stats[metric] });
+								changes.push({
+									date: new Date(),
+									id,
+									name,
+									metric,
+									old: playerOld.stats[metric],
+									new: playerNew.stats[metric],
+								});
 							}
 							break;
 						case 'goals_conceded':
 							if (position === 0 || position === 1) {
-								changes.push({ date: new Date(), id, name, metric, old: playerOld.stats[metric], new: playerNew.stats[metric] });
+								changes.push({
+									date: new Date(),
+									id,
+									name,
+									metric,
+									old: playerOld.stats[metric],
+									new: playerNew.stats[metric],
+								});
 							} else if (position === 2) {
 								if (playerOld.stats[metric] === 0) {
-									changes.push({ date: new Date(), id, name, metric, old: playerOld.stats[metric], new: playerNew.stats[metric] });
+									changes.push({
+										date: new Date(),
+										id,
+										name,
+										metric,
+										old: playerOld.stats[metric],
+										new: playerNew.stats[metric],
+									});
 								}
 							}
 							break;
 						default:
 							if (!statsToIgnore.some((stat) => stat === metric)) {
-								changes.push({ date: new Date(), id, name, metric, old: playerOld.stats[metric], new: playerNew.stats[metric] });
+								changes.push({
+									date: new Date(),
+									id,
+									name,
+									metric,
+									old: playerOld.stats[metric],
+									new: playerNew.stats[metric],
+								});
 							}
 
 							break;
 					}
 				}
 			});
+
+			if (playStatus === 2) {
+				if (originalChanges.filter((change) => change.id === id && change.metric === 'playStatus').length === 0) {
+					changes.push({
+						date: new Date(),
+						id,
+						name,
+						metric: 'playStatus',
+						old: 0,
+						new: 2,
+					});
+				}
+			}
 		}
 	});
 
-	let jsonData = JSON.stringify(newData);
-	fs.writeFileSync(`gwData.json`, jsonData);
+	return changes;
+};
+
+export const compareInitialLiveGameweekData = (
+	newData: LiveGameweek,
+	bootstrapStatic: BootstrapStatic,
+	teams: Record<number, boolean>,
+	originalChanges: LiveGameweekChange[]
+): LiveGameweekChange[] => {
+	const changes: LiveGameweekChange[] = [];
+
+	newData.elements.forEach((playerNew) => {
+		const player = getPlayer(bootstrapStatic, playerNew.id);
+		const name = player.web_name;
+		const position = player.element_type;
+		const { stats, id } = playerNew;
+		const statsToIgnore = ['influence', 'creativity', 'threat', 'ict_index', 'in_dreamteam', 'bps'];
+		let playStatus: 0 | 1 | 2 = 0; // 0 = game not started, 1 = played, 2 = game started and not yet played
+
+		if (teams[player.team]) {
+			playStatus = playerNew.stats.minutes ? 1 : 2;
+		}
+
+		type Stats = keyof typeof stats;
+
+		const metrics = Object.keys(playerNew.stats) as Stats[];
+
+		const defaultMetircValues = {
+			minutes: 0,
+			goals_scored: 0,
+			assists: 0,
+			clean_sheets: 0,
+			goals_conceded: 0,
+			own_goals: 0,
+			penalties_saved: 0,
+			penalties_missed: 0,
+			yellow_cards: 0,
+			red_cards: 0,
+			saves: 0,
+			bonus: 0,
+			bps: 0,
+			influence: '0.0',
+			creativity: '0.0',
+			threat: '0.0',
+			ict_index: '0.0',
+			total_points: 0,
+			in_dreamteam: false,
+		};
+
+		metrics.forEach((metric) => {
+			if (defaultMetircValues[metric] !== playerNew.stats[metric]) {
+				switch (metric) {
+					case 'minutes':
+						const oldMinutes = defaultMetircValues['minutes'];
+						const newMinutes = playerNew.stats['minutes'];
+						if ((oldMinutes === 0 && newMinutes > 0) || (oldMinutes < 60 && newMinutes >= 60)) {
+							changes.push({
+								date: new Date(),
+								id,
+								name,
+								metric,
+								old: defaultMetircValues[metric],
+								new: playerNew.stats[metric],
+							});
+						}
+						break;
+					case 'goals_conceded':
+						if (position === 0 || position === 1) {
+							changes.push({
+								date: new Date(),
+								id,
+								name,
+								metric,
+								old: defaultMetircValues[metric],
+								new: playerNew.stats[metric],
+							});
+						} else if (position === 2) {
+							if (defaultMetircValues[metric] === 0) {
+								changes.push({
+									date: new Date(),
+									id,
+									name,
+									metric,
+									old: defaultMetircValues[metric],
+									new: playerNew.stats[metric],
+								});
+							}
+						}
+						break;
+					default:
+						if (!statsToIgnore.some((stat) => stat === metric)) {
+							changes.push({
+								date: new Date(),
+								id,
+								name,
+								metric,
+								old: defaultMetircValues[metric],
+								new: playerNew.stats[metric],
+							});
+						}
+
+						break;
+				}
+			}
+		});
+
+		if (playStatus === 2) {
+			if (originalChanges.filter((change) => change.id === id && change.metric === 'playStatus').length === 0) {
+				changes.push({
+					date: new Date(),
+					id,
+					name,
+					metric: 'playStatus',
+					old: 0,
+					new: 2,
+				});
+			}
+		}
+	});
 
 	return changes;
 };
@@ -154,6 +464,38 @@ const getTeam = async (teamID: number, gameweekNo: number) => {
 	return data as Team;
 };
 
+const teamStarted = (liveGameweek: LiveGameweek, bootstrapStatic: BootstrapStatic) => {
+	let teams = {
+		1: false,
+		2: false,
+		3: false,
+		4: false,
+		5: false,
+		6: false,
+		7: false,
+		8: false,
+		9: false,
+		10: false,
+		11: false,
+		12: false,
+		13: false,
+		14: false,
+		15: false,
+		16: false,
+		17: false,
+		18: false,
+		19: false,
+		20: false,
+	};
+
+	return liveGameweek.elements.reduce<Record<number, boolean>>((acc, element) => {
+		const { team } = getPlayer(bootstrapStatic, element.id);
+		if (acc[team]) return acc;
+		if (element.stats.minutes > 0) acc[team] = true;
+		return acc;
+	}, teams);
+};
+
 export const updateHourly = async () => {
 	await Promise.all([updateBootstrapStatic(), updateFixtures()]);
 	const fixtures = getFile('/files/fixtures.json') as Fixture[];
@@ -163,17 +505,28 @@ export const updateHourly = async () => {
 };
 
 export const updateMinutely = async (gameweekNo: number) => {
+	console.log('updateMinutely: start');
+	const changesFilePath = `files/gameweeks/${gameweekNo}/changes-${gameweekNo}.json`;
+
+	const originalChanges = getFile(changesFilePath);
+
 	const bootstrapStatic = getFile(`files/bootstrap-static.json`) as BootstrapStatic;
 	const liveGameweek = await updateLiveGameweek(gameweekNo);
+	if (!liveGameweek) return;
+	if (!isLiveGameweekDataType(liveGameweek)) return;
 
-	try {
-		const previousLiveGameweek = getFile(`files/live-gameweek-${gameweekNo}.json`) as LiveGameweek;
-		const changes = compareLiveGameweekData(liveGameweek, previousLiveGameweek, bootstrapStatic);
-		writeFile(changes.concat(getFile(`files/changes-${gameweekNo}.json`)), `files/changes-${gameweekNo}.json`);
-	} catch (error) {
-		console.log(error);
-		writeFile([], `files/changes-${gameweekNo}.json`);
+	const teams = teamStarted(liveGameweek, bootstrapStatic);
+	calculateLivePoints(liveGameweek, bootstrapStatic);
+
+	const previousLiveGameweek = getFile(`files/gameweeks/${gameweekNo}/live-gameweek-${gameweekNo}.json`) as LiveGameweek;
+	if (previousLiveGameweek.elements.length) {
+		const changes = compareLiveGameweekData(liveGameweek, previousLiveGameweek, bootstrapStatic, teams, originalChanges);
+		writeFile(changes.concat(originalChanges), changesFilePath);
+	} else {
+		const changes = compareInitialLiveGameweekData(liveGameweek, bootstrapStatic, teams, originalChanges);
+		writeFile(changes.concat(originalChanges), changesFilePath);
 	}
 
-	writeFile(liveGameweek, `files/live-gameweek-${gameweekNo}.json`);
+	writeFile(liveGameweek, `files/gameweeks/${gameweekNo}/live-gameweek-${gameweekNo}.json`);
+	console.log('updateMinutely: end');
 };
